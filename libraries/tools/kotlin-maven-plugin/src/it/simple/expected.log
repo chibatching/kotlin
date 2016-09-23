@@ -1,3 +1,8 @@
 [INFO] Kotlin Compiler version @snapshot@
 [INFO] Compiling Kotlin sources from [/src/main/kotlin]
 [INFO] Module name is test-project
+!!Calculating effectivelyExcludedImports for module <test-project>
+!!Dependencies: <test-project>, <dependencies of test-project>, <built-ins module>
+!!Searching aliases in module <dependencies of test-project>, is equal to self: false
+!!Searching aliases in module <built-ins module>, is equal to self: false
+!!Found 0 aliased types to exclude
