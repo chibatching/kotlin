@@ -195,6 +195,11 @@ public class KotlinTestUtils {
                 throw new IllegalStateException("Unresolved: " + diagnostic.getPsiElement().getText());
             }
         }
+
+        @Override
+        public boolean wantsDiagnostics() {
+            return false;
+        }
     };
 
     public static BindingTrace DUMMY_EXCEPTION_ON_ERROR_TRACE = new BindingTrace() {
@@ -274,6 +279,11 @@ public class KotlinTestUtils {
             if (diagnostic.getSeverity() == Severity.ERROR) {
                 throw new IllegalStateException(DefaultErrorMessages.render(diagnostic));
             }
+        }
+
+        @Override
+        public boolean wantsDiagnostics() {
+            return true;
         }
     };
 
