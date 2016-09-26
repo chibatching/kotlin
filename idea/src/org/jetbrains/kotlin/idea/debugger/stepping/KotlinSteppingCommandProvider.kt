@@ -68,7 +68,20 @@ class KotlinSteppingCommandProvider: JvmSteppingCommandProvider() {
         return getStepOverCommand(suspendContext, ignoreBreakpoints, debuggerContext.sourcePosition)
     }
 
-    fun getStepOverCommand(suspendContext: SuspendContextImpl, ignoreBreakpoints: Boolean, sourcePosition: SourcePosition): DebugProcessImpl.ResumeCommand? {
+    private fun getStepOverCommand(
+            suspendContext: SuspendContextImpl,
+            ignoreBreakpoints: Boolean,
+            sourcePosition: SourcePosition): DebugProcessImpl.ResumeCommand? {
+        val kotlinSourcePosition = KotlinSourcePosition(sourcePosition) ?: return null
+
+        if (!isSpecialStepOverNeeded(kotlinSourcePosition)) return null
+
+        return DebuggerSteppingHelper.createStepOverCommand(suspendContext, ignoreBreakpoints, kotlinSourcePosition)
+    }
+
+    data class KotlinSourcePosition(val file: KtFile, val function: KtNamedFunction, val linesRange: IntRange, val sourcePosition: SourcePosition)
+
+    fun KotlinSourcePosition(sourcePosition: SourcePosition): KotlinSourcePosition? {
         val file = sourcePosition.file as? KtFile ?: return null
         if (sourcePosition.line < 0) return null
 
@@ -82,11 +95,11 @@ class KotlinSteppingCommandProvider: JvmSteppingCommandProvider() {
 
         val linesRange = startLineNumber..endLineNumber
 
-        val inlineArgumentsToSkip = getElementsToSkip(containingFunction as KtNamedFunction, sourcePosition) ?: return null
+        return KotlinSourcePosition(file, containingFunction, linesRange, sourcePosition)
+    }
 
-        val additionalElementsToSkip = sourcePosition.elementAt.getAdditionalElementsToSkip()
-
-        return DebuggerSteppingHelper.createStepOverCommand(suspendContext, ignoreBreakpoints, file, linesRange, inlineArgumentsToSkip, additionalElementsToSkip)
+    private fun isSpecialStepOverNeeded(kotlinSourcePosition: KotlinSourcePosition): Boolean {
+        return getElementsToSkip(kotlinSourcePosition.function, kotlinSourcePosition.sourcePosition) != null
     }
 
     @TestOnly
@@ -326,6 +339,20 @@ sealed class Action(val position: XSourcePositionImpl?) {
             is Action.STEP_OVER -> debugProcess.createStepOverCommand(suspendContext, ignoreBreakpoints)
         }
     }
+}
+
+fun getStepOverPosition(
+        location: Location,
+        kotlinSourcePosition: KotlinSteppingCommandProvider.KotlinSourcePosition
+): Action {
+    val (inlineArgumentsToSkip, additionalElementsToSkip) = runReadAction {
+        val inlineArgumentsToSkip = getElementsToSkip(kotlinSourcePosition.function, kotlinSourcePosition.sourcePosition)!!
+        val additionalElementsToSkip = kotlinSourcePosition.sourcePosition.elementAt.getAdditionalElementsToSkip()
+
+        Pair(inlineArgumentsToSkip, additionalElementsToSkip)
+    }
+
+    return getStepOverPosition(location, kotlinSourcePosition.file, kotlinSourcePosition.linesRange, inlineArgumentsToSkip, additionalElementsToSkip)
 }
 
 fun getStepOverPosition(
