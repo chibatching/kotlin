@@ -52,4 +52,10 @@ public class LightReflectionTestGenerated extends AbstractLightReflectionTest {
         String fileName = KotlinTestUtils.navigationMetadata("js/js.translator/testData/reflection/light/cases/jsClassOnReifiedType.kt");
         doTest(fileName);
     }
+
+    @TestMetadata("jsClassSimpleName.kt")
+    public void testJsClassSimpleName() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("js/js.translator/testData/reflection/light/cases/jsClassSimpleName.kt");
+        doTest(fileName);
+    }
 }
