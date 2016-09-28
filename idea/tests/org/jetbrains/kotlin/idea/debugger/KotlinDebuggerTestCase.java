@@ -46,8 +46,6 @@ import org.jetbrains.kotlin.asJava.classes.KtLightClassForFacade;
 import org.jetbrains.kotlin.codegen.forTestCompile.ForTestCompileRuntime;
 import org.jetbrains.kotlin.idea.test.ConfigLibraryUtil;
 import org.jetbrains.kotlin.idea.test.PluginTestCaseBase;
-import org.jetbrains.kotlin.idea.test.RunnableWithException;
-import org.jetbrains.kotlin.idea.test.TestUtilsKt;
 import org.jetbrains.kotlin.load.kotlin.PackagePartClassUtils;
 import org.jetbrains.kotlin.name.FqName;
 import org.jetbrains.kotlin.psi.KtFile;
@@ -145,7 +143,6 @@ public abstract class KotlinDebuggerTestCase extends DescriptorTestCase {
         ConfigLibraryUtil.addLibrary(customLibEditor, model);
     }
 
-    @SuppressWarnings("MethodDoesntCallSuperMethod")
     @Override
     protected void tearDown() throws Exception {
         if (getTestName(true).startsWith("dex")) {
@@ -160,12 +157,7 @@ public abstract class KotlinDebuggerTestCase extends DescriptorTestCase {
             }
         });
 
-        TestUtilsKt.patchThreadTracker(new RunnableWithException() {
-            @Override
-            public void run() throws Exception {
-                KotlinDebuggerTestCase.super.tearDown();
-            }
-        });
+        super.tearDown();
         VfsRootAccess.allowRootAccess(KotlinTestUtils.getHomeDirectory());
     }
 
