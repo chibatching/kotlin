@@ -120,7 +120,11 @@ public abstract class CodegenTestCase extends KtUsefulTestCase {
         myEnvironment = KotlinCoreEnvironment.createForTests(
                 getTestRootDisposable(), configuration, EnvironmentConfigFiles.JVM_CONFIG_FILES
         );
+
+        setUpEnvironment(myEnvironment);
     }
+
+    protected void setUpEnvironment(@NotNull KotlinCoreEnvironment environment) {}
 
     @NotNull
     protected static CompilerConfiguration createConfiguration(

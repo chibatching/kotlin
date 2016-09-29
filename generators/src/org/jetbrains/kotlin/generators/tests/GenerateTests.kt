@@ -20,6 +20,7 @@ import junit.framework.TestCase
 import org.intellij.lang.annotations.Language
 import org.jetbrains.kotlin.AbstractDataFlowValueRenderingTest
 import org.jetbrains.kotlin.addImport.AbstractAddImportTest
+import org.jetbrains.kotlin.allopen.AbstractBytecodeListingTestForAllOpen
 import org.jetbrains.kotlin.android.*
 import org.jetbrains.kotlin.android.configure.AbstractConfigureProjectTest
 import org.jetbrains.kotlin.annotation.AbstractAnnotationProcessorBoxTest
@@ -1053,6 +1054,12 @@ fun main(args: Array<String>) {
         
         testClass<AbstractBytecodeListingTestForSourceRetention>() {
             model("sourceRetention", extension = "kt")
+        }
+    }
+
+    testGroup("plugins/plugins-tests/tests", "plugins/allopen/testData") {
+        testClass<AbstractBytecodeListingTestForAllOpen>() {
+            model("bytecodeListing", extension = "kt")
         }
     }
 
