@@ -175,6 +175,9 @@ internal class DescriptorRendererImpl(
             }
             return
         }
+
+        renderAnnotations(type, this)
+
         if (type.isError) {
             renderDefaultType(type)
             return
@@ -227,8 +230,6 @@ internal class DescriptorRendererImpl(
     }
 
     private fun StringBuilder.renderDefaultType(type: KotlinType) {
-        renderAnnotations(type, this)
-
         if (type.isError) {
             append(type.constructor.toString()) // Debug name of an error type is more informative
             append(renderTypeArguments(type.arguments))
@@ -377,11 +378,16 @@ internal class DescriptorRendererImpl(
             }
             val annotationType = annotation.type
             append(renderType(annotationType))
-            if (verbose) {
-                renderAndSortAnnotationArguments(annotation).joinTo(this, ", ", "(", ")")
-                if (annotationType.isError || annotationType.constructor.declarationDescriptor is NotFoundClasses.MockClassDescriptor) {
-                    append(" /* annotation class not found */")
+
+            if (includeAnnotationArguments) {
+                val arguments = renderAndSortAnnotationArguments(annotation)
+                if (arguments.isNotEmpty()) {
+                    arguments.joinTo(this, ", ", "(", ")")
                 }
+            }
+
+            if (verbose && (annotationType.isError || annotationType.constructor.declarationDescriptor is NotFoundClasses.MockClassDescriptor)) {
+                append(" /* annotation class not found */")
             }
         }
     }
