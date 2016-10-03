@@ -31,6 +31,7 @@ import org.jetbrains.kotlin.load.java.descriptors.getParentJavaStaticClassScope
 import org.jetbrains.kotlin.load.kotlin.incremental.components.IncrementalCache
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.DescriptorToSourceUtils
+import org.jetbrains.kotlin.resolve.descriptorUtil.overriddenTreeUniqueAsSequence
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.*
 import org.jetbrains.kotlin.resolve.scopes.DescriptorKindFilter
 import org.jetbrains.kotlin.utils.addIfNotNull
@@ -219,7 +220,7 @@ class BuilderFactoryForDuplicateSignatureDiagnostics(
             else if (member is FunctionDescriptor) {
                 val signatures =
                         if (member.kind == FAKE_OVERRIDE)
-                            member.overriddenDescriptors.mapTo(HashSet()) { it.original.asRawSignature() }
+                            member.overriddenTreeUniqueAsSequence(useOriginal = true).mapTo(HashSet()) { it.asRawSignature() }
                         else
                             setOf(member.asRawSignature())
 
