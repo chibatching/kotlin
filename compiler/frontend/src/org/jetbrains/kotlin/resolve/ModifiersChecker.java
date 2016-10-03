@@ -198,6 +198,10 @@ public class ModifiersChecker {
             checkModifierListCommon(modifierListOwner, descriptor);
         }
 
+        public void checkModifiersForLoopParameter(@NotNull KtParameter parameter) {
+            annotationChecker.check(parameter, trace, null);
+        }
+
         public void checkModifiersForDestructuringDeclaration(@NotNull KtDestructuringDeclaration multiDeclaration) {
             annotationChecker.check(multiDeclaration, trace, null);
             ModifierCheckerCore.INSTANCE.check(multiDeclaration, trace, null, languageVersionSettings);

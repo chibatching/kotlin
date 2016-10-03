@@ -736,28 +736,28 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
         public void beforeLoop() {
             KtParameter loopParameter = forExpression.getLoopParameter();
             if (loopParameter != null) {
-                // E e = tmp<iterator>.next()
-                final VariableDescriptor parameterDescriptor = bindingContext.get(VALUE_PARAMETER, loopParameter);
-                loopParameterType = asmType(parameterDescriptor.getType());
-                loopParameterVar = myFrameMap.enter(parameterDescriptor, loopParameterType);
-                scheduleLeaveVariable(new Runnable() {
-                    @Override
-                    public void run() {
-                        myFrameMap.leave(parameterDescriptor);
-                        v.visitLocalVariable(parameterDescriptor.getName().asString(),
-                                             loopParameterType.getDescriptor(), null,
-                                             loopParameterStartLabel, bodyEnd,
-                                             loopParameterVar);
-                    }
-                });
-            }
-            else {
-                KtDestructuringDeclaration multiParameter = forExpression.getDestructuringParameter();
-                assert multiParameter != null;
-
-                // E tmp<e> = tmp<iterator>.next()
-                loopParameterType = asmElementType;
-                loopParameterVar = createLoopTempVariable(asmElementType);
+                KtDestructuringDeclaration multiParameter = loopParameter.getDestructuringDeclaration();
+                if (multiParameter != null) {
+                    // E tmp<e> = tmp<iterator>.next()
+                    loopParameterType = asmElementType;
+                    loopParameterVar = createLoopTempVariable(asmElementType);
+                }
+                else {
+                    // E e = tmp<iterator>.next()
+                    final VariableDescriptor parameterDescriptor = bindingContext.get(VALUE_PARAMETER, loopParameter);
+                    loopParameterType = asmType(parameterDescriptor.getType());
+                    loopParameterVar = myFrameMap.enter(parameterDescriptor, loopParameterType);
+                    scheduleLeaveVariable(new Runnable() {
+                        @Override
+                        public void run() {
+                            myFrameMap.leave(parameterDescriptor);
+                            v.visitLocalVariable(parameterDescriptor.getName().asString(),
+                                                 loopParameterType.getDescriptor(), null,
+                                                 loopParameterStartLabel, bodyEnd,
+                                                 loopParameterVar);
+                        }
+                    });
+                }
             }
         }
 
@@ -769,10 +769,8 @@ public class ExpressionCodegen extends KtVisitor<StackValue, StackValue> impleme
             assignToLoopParameter();
             v.mark(loopParameterStartLabel);
 
-            if (forExpression.getLoopParameter() == null) {
-                KtDestructuringDeclaration multiParameter = forExpression.getDestructuringParameter();
-                assert multiParameter != null;
-
+            KtDestructuringDeclaration multiParameter = forExpression.getDestructuringParameter();
+            if (multiParameter != null) {
                 generateMultiVariables(multiParameter.getEntries());
             }
         }

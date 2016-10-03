@@ -400,24 +400,25 @@ public class ControlStructureTypingVisitor extends ExpressionTypingVisitor {
 
         KtParameter loopParameter = expression.getLoopParameter();
         if (loopParameter != null) {
-            VariableDescriptor variableDescriptor = createLoopParameterDescriptor(loopParameter, expectedParameterType, context);
-            components.modifiersChecker.withTrace(context.trace).checkModifiersForLocalDeclaration(loopParameter, variableDescriptor);
-            components.identifierChecker.checkDeclaration(loopParameter, context.trace);
-
-            loopScope.addVariableDescriptor(variableDescriptor);
-        }
-        else {
-            KtDestructuringDeclaration multiParameter = expression.getDestructuringParameter();
+            KtDestructuringDeclaration multiParameter = loopParameter.getDestructuringDeclaration();
+            ModifiersChecker.ModifiersCheckingProcedure modifiersCheckingProcedure = components.modifiersChecker.withTrace(context.trace);
             if (multiParameter != null) {
                 KotlinType elementType = expectedParameterType == null ? ErrorUtils.createErrorType("Loop range has no type") : expectedParameterType;
                 TransientReceiver iteratorNextAsReceiver = new TransientReceiver(elementType);
-                components.annotationResolver.resolveAnnotationsWithArguments(loopScope, multiParameter.getModifierList(), context.trace);
+                components.annotationResolver.resolveAnnotationsWithArguments(loopScope, loopParameter.getModifierList(), context.trace);
                 components.destructuringDeclarationResolver.defineLocalVariablesFromDestructuringDeclaration(
                         loopScope, multiParameter, iteratorNextAsReceiver, loopRange, context
                 );
-                components.modifiersChecker.withTrace(context.trace).checkModifiersForDestructuringDeclaration(multiParameter);
-                components.modifiersChecker.withTrace(context.trace).checkParameterHasNoValOrVar(multiParameter, VAL_OR_VAR_ON_LOOP_MULTI_PARAMETER);
+                modifiersCheckingProcedure.checkModifiersForLoopParameter(loopParameter);
+                modifiersCheckingProcedure.checkModifiersForDestructuringDeclaration(multiParameter);
+                modifiersCheckingProcedure.checkParameterHasNoValOrVar(loopParameter, VAL_OR_VAR_ON_LOOP_MULTI_PARAMETER);
                 components.identifierChecker.checkDeclaration(multiParameter, context.trace);
+            }
+            else {
+                VariableDescriptor variableDescriptor = createLoopParameterDescriptor(loopParameter, expectedParameterType, context);
+                modifiersCheckingProcedure.checkModifiersForLocalDeclaration(loopParameter, variableDescriptor);
+                components.identifierChecker.checkDeclaration(loopParameter, context.trace);
+                loopScope.addVariableDescriptor(variableDescriptor);
             }
         }
 

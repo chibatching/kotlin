@@ -1374,8 +1374,9 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
                 if (at(VAL_KEYWORD) || at(VAR_KEYWORD)) advance(); // VAL_KEYWORD or VAR_KEYWORD
 
                 if (at(LPAR)) {
+                    PsiBuilder.Marker destructuringDeclaration = mark();
                     myKotlinParsing.parseMultiDeclarationName(TokenSet.create(IN_KEYWORD, LBRACE));
-                    parameter.done(DESTRUCTURING_DECLARATION);
+                    destructuringDeclaration.done(DESTRUCTURING_DECLARATION);
                 }
                 else {
                     expect(IDENTIFIER, "Expecting a variable name", TokenSet.create(COLON, IN_KEYWORD));
@@ -1384,8 +1385,8 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
                         advance(); // COLON
                         myKotlinParsing.parseTypeRef(TokenSet.create(IN_KEYWORD));
                     }
-                    parameter.done(VALUE_PARAMETER);
                 }
+                parameter.done(VALUE_PARAMETER);
 
                 if (expect(IN_KEYWORD, "Expecting 'in'", TokenSet.create(LPAR, LBRACE, RPAR))) {
                     PsiBuilder.Marker range = mark();
