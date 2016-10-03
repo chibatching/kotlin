@@ -26,12 +26,9 @@ import org.jetbrains.kotlin.js.translate.context.Namer.getDelegateNameRef
 import org.jetbrains.kotlin.js.translate.context.Namer.getReceiverParameterName
 import org.jetbrains.kotlin.js.translate.context.TranslationContext
 import org.jetbrains.kotlin.js.translate.general.AbstractTranslator
-import org.jetbrains.kotlin.js.translate.general.Translation
 import org.jetbrains.kotlin.js.translate.utils.JsAstUtils.pureFqn
 import org.jetbrains.kotlin.js.translate.utils.JsDescriptorUtils
-import org.jetbrains.kotlin.js.translate.utils.TranslationUtils.assignmentToBackingField
-import org.jetbrains.kotlin.js.translate.utils.TranslationUtils.backingFieldReference
-import org.jetbrains.kotlin.js.translate.utils.TranslationUtils.translateFunctionAsEcma5PropertyDescriptor
+import org.jetbrains.kotlin.js.translate.utils.TranslationUtils.*
 import org.jetbrains.kotlin.js.translate.utils.jsAstUtils.addParameter
 import org.jetbrains.kotlin.js.translate.utils.jsAstUtils.addStatement
 import org.jetbrains.kotlin.psi.KtProperty
@@ -48,13 +45,12 @@ import org.jetbrains.kotlin.resolve.descriptorUtil.isExtension
 fun translateAccessors(
         descriptor: VariableDescriptorWithAccessors,
         declaration: KtProperty?,
-        result: MutableList<JsPropertyInitializer>,
         context: TranslationContext
 ) {
     if (descriptor is PropertyDescriptor
         && (descriptor.modality == Modality.ABSTRACT || JsDescriptorUtils.isSimpleFinalProperty(descriptor))) return
 
-    PropertyTranslator(descriptor, declaration, context).translate(result)
+    PropertyTranslator(descriptor, declaration, context).translate(mutableListOf())
 }
 
 fun translateAccessors(
@@ -62,7 +58,7 @@ fun translateAccessors(
         result: MutableList<JsPropertyInitializer>,
         context: TranslationContext
 ) {
-    translateAccessors(descriptor, null, result, context)
+    translateAccessors(descriptor, null, context)
 }
 
 fun MutableList<JsPropertyInitializer>.addGetterAndSetter(
@@ -212,8 +208,10 @@ private class PropertyTranslator(
     private fun generateDefaultAccessor(accessorDescriptor: VariableAccessorDescriptor, function: JsFunction): JsPropertyInitializer =
             translateFunctionAsEcma5PropertyDescriptor(function, accessorDescriptor, context())
 
-    private fun translateCustomAccessor(expression: KtPropertyAccessor): JsPropertyInitializer =
-            Translation.functionTranslator(expression, context()).translateAsEcma5PropertyDescriptor()
+    private fun translateCustomAccessor(expression: KtPropertyAccessor): JsPropertyInitializer {
+        //Translation.functionTranslator(expression, context()).translateAsEcma5PropertyDescriptor()
+        return JsPropertyInitializer(JsLiteral.NULL, JsLiteral.NULL)
+    }
 
     private fun accessorDescription(accessorDescriptor: VariableAccessorDescriptor): String {
         val accessorType =

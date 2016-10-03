@@ -27,25 +27,22 @@ import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.containers.hash.LinkedHashMap;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.kotlin.builtins.ReflectionTypes;
 import org.jetbrains.kotlin.descriptors.*;
-import org.jetbrains.kotlin.descriptors.impl.TypeAliasConstructorDescriptor;
 import org.jetbrains.kotlin.js.config.JsConfig;
 import org.jetbrains.kotlin.js.config.LibrarySourcesConfig;
 import org.jetbrains.kotlin.js.translate.context.generator.Generator;
 import org.jetbrains.kotlin.js.translate.context.generator.Rule;
 import org.jetbrains.kotlin.js.translate.intrinsic.Intrinsics;
 import org.jetbrains.kotlin.js.translate.utils.JsAstUtils;
+import org.jetbrains.kotlin.js.translate.utils.ManglingUtils;
 import org.jetbrains.kotlin.name.FqName;
 import org.jetbrains.kotlin.resolve.BindingContext;
 import org.jetbrains.kotlin.resolve.BindingTrace;
 import org.jetbrains.kotlin.resolve.DescriptorUtils;
 import org.jetbrains.kotlin.resolve.calls.util.FakeCallableDescriptorForObject;
+import org.jetbrains.kotlin.resolve.descriptorUtil.DescriptorUtilsKt;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.jetbrains.kotlin.js.translate.utils.AnnotationsUtils.*;
 import static org.jetbrains.kotlin.js.translate.utils.JsAstUtils.pureFqn;
@@ -65,7 +62,9 @@ public final class StaticContext {
         Namer namer = Namer.newInstance(program.getRootScope());
         Intrinsics intrinsics = new Intrinsics();
         StandardClasses standardClasses = StandardClasses.bindImplementations(namer.getKotlinScope());
-        return new StaticContext(program, bindingTrace, namer, intrinsics, standardClasses, program.getRootScope(), config, moduleDescriptor);
+        JsFunction rootFunction = JsAstUtils.createFunctionWithEmptyBody(program.getScope());
+        return new StaticContext(program, rootFunction, bindingTrace, namer, intrinsics, standardClasses, program.getRootScope(), config,
+                                 moduleDescriptor);
     }
 
     @NotNull
@@ -83,13 +82,12 @@ public final class StaticContext {
     private final StandardClasses standardClasses;
 
     @NotNull
-    private final ReflectionTypes reflectionTypes;
-
-    @NotNull
     private final JsScope rootScope;
 
     @NotNull
     private final Generator<JsName> names = new NameGenerator();
+    @NotNull
+    private final Generator<JsName> innerNames = new InnerNameGenerator();
     @NotNull
     private final Map<FqName, JsName> packageNames = Maps.newHashMap();
     @NotNull
@@ -116,9 +114,31 @@ public final class StaticContext {
 
     private Map<String, JsName> readOnlyImportedModules;
 
+    @NotNull
+    private final ModuleDescriptor currentModule;
+
+    @NotNull
+    private JsFunction rootFunction;
+
+    @NotNull
+    private final List<JsStatement> declarationStatements = new ArrayList<JsStatement>();
+
+    @NotNull
+    private final List<JsStatement> importStatements = new ArrayList<JsStatement>();
+
+    @NotNull
+    private final List<JsStatement> exportStatements = new ArrayList<JsStatement>();
+
+    @NotNull
+    private final JsObjectLiteral exportObject = new JsObjectLiteral();
+
+    @NotNull
+    private final Set<ClassDescriptor> classes = new HashSet<ClassDescriptor>();
+
     //TODO: too many parameters in constructor
     private StaticContext(
             @NotNull JsProgram program,
+            @NotNull JsFunction rootFunction,
             @NotNull BindingTrace bindingTrace,
             @NotNull Namer namer,
             @NotNull Intrinsics intrinsics,
@@ -128,13 +148,15 @@ public final class StaticContext {
             @NotNull ModuleDescriptor moduleDescriptor
     ) {
         this.program = program;
+        this.rootFunction = rootFunction;
         this.bindingTrace = bindingTrace;
         this.namer = namer;
         this.intrinsics = intrinsics;
         this.rootScope = rootScope;
         this.standardClasses = standardClasses;
         this.config = config;
-        this.reflectionTypes = new ReflectionTypes(moduleDescriptor);
+        this.currentModule = moduleDescriptor;
+        this.rootFunction = rootFunction;
     }
 
     @NotNull
@@ -163,11 +185,6 @@ public final class StaticContext {
     }
 
     @NotNull
-    public ReflectionTypes getReflectionTypes() {
-        return reflectionTypes;
-    }
-
-    @NotNull
     private JsScope getRootScope() {
         return rootScope;
     }
@@ -191,6 +208,7 @@ public final class StaticContext {
     public JsFunction getFunctionWithScope(@NotNull CallableDescriptor descriptor) {
         JsScope scope = getScopeForDescriptor(descriptor);
         JsFunction function = scopeToFunction.get(scope);
+        function.setName(rootFunction.getScope().declareFreshName(ManglingUtils.getSuggestedName(descriptor)));
         assert scope.equals(function.getScope()) : "Inconsistency.";
         return function;
     }
@@ -219,6 +237,13 @@ public final class StaticContext {
     public JsName getNameForDescriptor(@NotNull DeclarationDescriptor descriptor) {
         JsName name = names.get(descriptor.getOriginal());
         assert name != null : "Must have name for descriptor";
+        return name;
+    }
+
+    @NotNull
+    public JsName getInnerNameForDescriptor(@NotNull DeclarationDescriptor descriptor) {
+        JsName name = innerNames.get(descriptor.getOriginal());
+        assert name != null : "Must have inner name for descriptor";
         return name;
     }
 
@@ -262,6 +287,23 @@ public final class StaticContext {
     @NotNull
     public JsConfig getConfig() {
         return config;
+    }
+
+    private final class InnerNameGenerator extends Generator<JsName> {
+        public InnerNameGenerator() {
+            addRule(new Rule<JsName>() {
+                @Nullable
+                @Override
+                public JsName apply(@NotNull DeclarationDescriptor descriptor) {
+                    JsName result = rootFunction.getScope().declareFreshName(ManglingUtils.getSuggestedName(descriptor));
+                    ModuleDescriptor module = DescriptorUtilsKt.getModule(descriptor);
+                    if (module != currentModule) {
+                        importStatements.add(JsAstUtils.newVar(result, getQualifiedReference(descriptor)));
+                    }
+                    return result;
+                }
+            });
+        }
     }
 
     private final class NameGenerator extends Generator<JsName> {
@@ -699,5 +741,56 @@ public final class StaticContext {
     @NotNull
     public Map<ClassDescriptor, List<DeferredCallSite>> getDeferredCallSites() {
         return deferredCallSites;
+    }
+
+    @NotNull
+    public JsFunction getRootFunction() {
+        return rootFunction;
+    }
+
+    public void addRootStatement(@NotNull JsStatement statement) {
+        declarationStatements.add(statement);
+    }
+
+    public void addClass(@NotNull ClassDescriptor classDescriptor) {
+        classes.add(classDescriptor);
+    }
+
+    public void postProcess() {
+        rootFunction.getBody().getStatements().addAll(importStatements);
+        addClassPrototypes();
+        rootFunction.getBody().getStatements().addAll(declarationStatements);
+
+        JsName rootPackageName = rootFunction.getScope().declareName(Namer.getRootPackageName());
+        rootFunction.getBody().getStatements().add(JsAstUtils.newVar(rootPackageName, exportObject));
+        rootFunction.getBody().getStatements().addAll(exportStatements);
+    }
+
+    private void addClassPrototypes() {
+        Set<ClassDescriptor> visited = new HashSet<ClassDescriptor>();
+        for (ClassDescriptor cls : classes) {
+            addClassPrototypes(cls, visited);
+        }
+    }
+
+    private void addClassPrototypes(@NotNull ClassDescriptor cls, @NotNull Set<ClassDescriptor> visited) {
+        if (DescriptorUtilsKt.getModule(cls) != currentModule) return;
+        if (!visited.add(cls)) return;
+
+        ClassDescriptor superclass = DescriptorUtilsKt.getSuperClassNotAny(cls);
+        if (superclass != null) {
+            addClassPrototypes(superclass, visited);
+
+            List<JsStatement> statements = rootFunction.getBody().getStatements();
+
+            JsExpression superPrototype = new JsNameRef("prototype", new JsNameRef(getInnerNameForDescriptor(superclass)));
+            JsExpression superPrototypeInstance = new JsInvocation(new JsNameRef("create", "Object"), superPrototype);
+            JsExpression classRef = new JsNameRef(getInnerNameForDescriptor(cls));
+            JsExpression prototype = new JsNameRef("prototype", classRef);
+            statements.add(JsAstUtils.assignment(prototype, superPrototypeInstance).makeStmt());
+
+            JsExpression constructorRef = new JsNameRef("constructor", prototype.deepCopy());
+            statements.add(JsAstUtils.assignment(constructorRef, classRef.deepCopy()).makeStmt());
+        }
     }
 }

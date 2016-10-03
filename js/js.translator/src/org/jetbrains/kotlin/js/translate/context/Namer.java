@@ -107,6 +107,8 @@ public final class Namer {
     private static final JsNameRef JS_OBJECT_CREATE_FUNCTION = new JsNameRef("create", JS_OBJECT);
 
     public static final String LOCAL_MODULE_PREFIX = "$module$";
+    public static final String METADATA = "$metadata$";
+    public static final String METADATA_SUPERTYPES = "baseClasses";
 
     public static boolean isUndefined(@NotNull JsExpression expr) {
         if (expr instanceof JsPrefixOperation) {

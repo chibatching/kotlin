@@ -42,10 +42,8 @@ final class PackageTranslator extends AbstractTranslator {
         JsNameRef reference = context.getQualifiedReference(descriptor);
         SmartList<JsPropertyInitializer> properties = new SmartList<JsPropertyInitializer>();
 
-        DefinitionPlace definitionPlace = new DefinitionPlace((JsObjectScope) scope, reference, properties);
-
-        TranslationContext newContext = context.newDeclaration(descriptor, definitionPlace);
-        FileDeclarationVisitor visitor = new FileDeclarationVisitor(newContext, scope, definitionPlace.getProperties());
+        TranslationContext newContext = context.newDeclaration(descriptor);
+        FileDeclarationVisitor visitor = new FileDeclarationVisitor(newContext, scope);
         return new PackageTranslator(descriptor, newContext, visitor);
     }
 
@@ -68,39 +66,6 @@ final class PackageTranslator extends AbstractTranslator {
         for (KtDeclaration declaration : file.getDeclarations()) {
             if (!AnnotationsUtils.isPredefinedObject(BindingUtils.getDescriptorForElement(bindingContext(), declaration))) {
                 declaration.accept(visitor, context());
-            }
-        }
-    }
-
-    private void createDefinitionPlace(
-            @Nullable JsExpression initializer,
-            Map<FqName, DefineInvocation> packageFqNameToDefineInvocation
-    ) {
-        FqName fqName = descriptor.getFqName();
-        DefineInvocation place = DefineInvocation.create(fqName, initializer, new JsObjectLiteral(visitor.getResult(), true), context());
-        packageFqNameToDefineInvocation.put(fqName, place);
-        addToParent(fqName.parent(), getEntry(fqName, place), packageFqNameToDefineInvocation);
-    }
-
-    public void add(@NotNull Map<FqName, DefineInvocation> packageFqNameToDefineInvocation) {
-        JsExpression initializer = visitor.computeInitializer();
-
-        DefineInvocation defineInvocation = packageFqNameToDefineInvocation.get(descriptor.getFqName());
-        if (defineInvocation == null) {
-            if (initializer != null || !visitor.getResult().isEmpty()) {
-                createDefinitionPlace(initializer, packageFqNameToDefineInvocation);
-            }
-        }
-        else {
-            if (initializer != null) {
-                assert defineInvocation.getInitializer() == JsLiteral.NULL;
-                defineInvocation.setInitializer(initializer);
-            }
-
-            List<JsPropertyInitializer> listFromPlace = defineInvocation.getMembers();
-            // if equals, so, inner functions was added
-            if (listFromPlace != visitor.getResult()) {
-                listFromPlace.addAll(visitor.getResult());
             }
         }
     }

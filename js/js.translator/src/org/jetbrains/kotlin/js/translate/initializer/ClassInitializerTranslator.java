@@ -56,12 +56,15 @@ public final class ClassInitializerTranslator extends AbstractTranslator {
 
     public ClassInitializerTranslator(
             @NotNull KtClassOrObject classDeclaration,
-            @NotNull TranslationContext context
+            @NotNull TranslationContext context,
+            @NotNull JsFunction initFunction
     ) {
         super(context);
         this.classDeclaration = classDeclaration;
-        this.initFunction = createInitFunction(classDeclaration, context);
+        this.initFunction = initFunction;
         this.context = context.contextWithScope(initFunction);
+
+        fillInitFunction(classDeclaration, context);
     }
 
     @NotNull
@@ -70,8 +73,7 @@ public final class ClassInitializerTranslator extends AbstractTranslator {
         return context;
     }
 
-    @NotNull
-    private static JsFunction createInitFunction(KtClassOrObject declaration, TranslationContext context) {
+    private static void fillInitFunction(KtClassOrObject declaration, TranslationContext context) {
         //TODO: it's inconsistent that we have scope for class and function for constructor, currently have problems implementing better way
         ClassDescriptor classDescriptor = getClassDescriptor(context.bindingContext(), declaration);
         ConstructorDescriptor primaryConstructor = classDescriptor.getUnsubstitutedPrimaryConstructor();
@@ -90,12 +92,9 @@ public final class ClassInitializerTranslator extends AbstractTranslator {
         if (!name.isSpecial()) {
             ctorFunction.setName(ctorFunction.getScope().declareName(name.asString()));
         }
-
-        return ctorFunction;
     }
 
-    @NotNull
-    public JsFunction generateInitializeMethod(DelegationTranslator delegationTranslator) {
+    public void generateInitializeMethod(DelegationTranslator delegationTranslator) {
         ClassDescriptor classDescriptor = getClassDescriptor(bindingContext(), classDeclaration);
         addOuterClassReference(classDescriptor);
         ConstructorDescriptor primaryConstructor = classDescriptor.getUnsubstitutedPrimaryConstructor();
@@ -112,8 +111,6 @@ public final class ClassInitializerTranslator extends AbstractTranslator {
 
         delegationTranslator.addInitCode(initFunction.getBody().getStatements());
         new InitializerVisitor().traverseContainer(classDeclaration, context().innerBlock(initFunction.getBody()));
-
-        return initFunction;
     }
 
     private void addOuterClassReference(ClassDescriptor classDescriptor) {

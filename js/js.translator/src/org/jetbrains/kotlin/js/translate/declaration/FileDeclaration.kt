@@ -15,42 +15,39 @@
  */
 package org.jetbrains.kotlin.js.translate.declaration
 
-import com.google.dart.compiler.backend.js.ast.JsFunction
-import com.google.dart.compiler.backend.js.ast.JsPropertyInitializer
 import com.google.dart.compiler.backend.js.ast.JsScope
-import com.intellij.util.SmartList
+import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.PropertyDescriptor
 import org.jetbrains.kotlin.js.translate.context.TranslationContext
 import org.jetbrains.kotlin.js.translate.general.Translation
+import org.jetbrains.kotlin.js.translate.general.TranslatorVisitor
 import org.jetbrains.kotlin.js.translate.initializer.InitializerUtils.generateInitializerForDelegate
 import org.jetbrains.kotlin.js.translate.initializer.InitializerUtils.generateInitializerForProperty
 import org.jetbrains.kotlin.js.translate.initializer.InitializerVisitor
+import org.jetbrains.kotlin.js.translate.utils.BindingUtils.getFunctionDescriptor
 import org.jetbrains.kotlin.js.translate.utils.BindingUtils.getPropertyDescriptor
 import org.jetbrains.kotlin.js.translate.utils.JsAstUtils
-import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.KtAnonymousInitializer
+import org.jetbrains.kotlin.psi.KtClassOrObject
+import org.jetbrains.kotlin.psi.KtNamedFunction
+import org.jetbrains.kotlin.psi.KtProperty
 
 class FileDeclarationVisitor(
         val context: TranslationContext,
-        scope: JsScope,
-        initializers: List<JsPropertyInitializer> = SmartList()
-) : DeclarationBodyVisitor(initializers, SmartList(), scope) {
+        val scope: JsScope
+) : TranslatorVisitor<Unit>() {
 
     private val initializer = JsAstUtils.createFunctionWithEmptyBody(context.scope())
     private val initializerContext = context.contextWithScope(initializer).innerBlock(initializer.body)
     private val initializerVisitor = InitializerVisitor()
 
-    fun computeInitializer(): JsFunction? {
-        return if (initializer.body.statements.isNotEmpty()) initializer else null
+    override fun emptyResult(context: TranslationContext) {}
+
+    override fun visitClassOrObject(declaration: KtClassOrObject, context: TranslationContext?) {
+        ClassTranslator.translate(declaration, context!!)
     }
 
-    override fun visitClassOrObject(declaration: KtClassOrObject, context: TranslationContext?): Void? {
-        result += ClassTranslator.translate(declaration, context!!).properties
-        return null
-    }
-
-    override fun visitProperty(expression: KtProperty, context: TranslationContext?): Void? {
-        context!! // hack
-
+    override fun visitProperty(expression: KtProperty, context: TranslationContext) {
         super.visitProperty(expression, context)
         val initializer = expression.initializer
         if (initializer != null) {
@@ -60,12 +57,24 @@ class FileDeclarationVisitor(
         }
 
         generateInitializerForDelegate(context, expression)?.let { this.initializer.body.statements += it }
-
-        return null
     }
 
-    override fun visitAnonymousInitializer(expression: KtAnonymousInitializer, context: TranslationContext?): Void? {
+    override fun visitAnonymousInitializer(expression: KtAnonymousInitializer, context: TranslationContext?) {
         expression.accept(initializerVisitor, initializerContext)
-        return null
+    }
+
+    override fun visitNamedFunction(expression: KtNamedFunction, context: TranslationContext) {
+        val descriptor = getFunctionDescriptor(context.bindingContext(), expression)
+        if (descriptor.modality === Modality.ABSTRACT) return
+
+        val innerContext = context.newDeclaration(descriptor)
+        val function = context.declareTopLevelFunction(descriptor)
+        val functionExpression = Translation.functionTranslator(expression, innerContext, function).translateAsMethod()
+        if (functionExpression == function) {
+            context.addRootStatement(function.makeStmt())
+        }
+        else {
+            context.addRootStatement(JsAstUtils.newVar(function.name, functionExpression))
+        }
     }
 }

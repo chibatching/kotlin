@@ -60,12 +60,15 @@ class LiteralFunctionTranslator(context: TranslationContext) : AbstractTranslato
         }
 
         lambda.isLocal = true
-        return invokingContext.define(descriptor, lambda).apply { sideEffects = SideEffectKind.PURE }
+
+        context().addRootStatement(lambda.makeStmt())
+        return lambda.name.makeRef().apply { sideEffects = SideEffectKind.PURE }
     }
 }
 
 fun JsFunction.withCapturedParameters(context: TranslationContext, invokingContext: TranslationContext, descriptor: MemberDescriptor): JsExpression {
-    val ref = invokingContext.define(descriptor, this).apply { sideEffects = SideEffectKind.PURE }
+    context.addRootStatement(makeStmt())
+    val ref = name.makeRef().apply { sideEffects = SideEffectKind.PURE }
     val invocation = JsInvocation(ref).apply { sideEffects = SideEffectKind.PURE }
 
     val invocationArguments = invocation.arguments

@@ -24,9 +24,8 @@ import org.jetbrains.kotlin.descriptors.*;
 import org.jetbrains.kotlin.js.translate.context.TranslationContext;
 import org.jetbrains.kotlin.js.translate.general.Translation;
 import org.jetbrains.kotlin.js.translate.general.TranslatorVisitor;
-import org.jetbrains.kotlin.js.translate.initializer.ClassInitializerTranslator;
 import org.jetbrains.kotlin.js.translate.utils.BindingUtils;
-import org.jetbrains.kotlin.js.translate.utils.TranslationUtils;
+import org.jetbrains.kotlin.js.translate.utils.JsAstUtils;
 import org.jetbrains.kotlin.psi.*;
 import org.jetbrains.kotlin.types.KotlinType;
 
@@ -38,8 +37,7 @@ import static org.jetbrains.kotlin.js.translate.utils.BindingUtils.getFunctionDe
 import static org.jetbrains.kotlin.js.translate.utils.JsDescriptorUtils.getSupertypesWithoutFakes;
 
 public class DeclarationBodyVisitor extends TranslatorVisitor<Void> {
-    protected final List<JsPropertyInitializer> result;
-    private final List<JsPropertyInitializer> staticResult;
+    private final @NotNull ClassDescriptor containingClass;
     private final List<JsPropertyInitializer> enumEntryList = new SmartList<JsPropertyInitializer>();
 
     @NotNull
@@ -48,18 +46,9 @@ public class DeclarationBodyVisitor extends TranslatorVisitor<Void> {
     @Nullable
     private List<JsStatement> initializerStatements;
 
-    public DeclarationBodyVisitor(
-            @NotNull List<JsPropertyInitializer> result, @NotNull List<JsPropertyInitializer> staticResult,
-            @NotNull JsScope scope
-    ) {
-        this.result = result;
-        this.staticResult = staticResult;
+    public DeclarationBodyVisitor(@NotNull JsScope scope, @NotNull ClassDescriptor containingClass) {
         this.scope = scope;
-    }
-
-    @NotNull
-    public List<JsPropertyInitializer> getResult() {
-        return result;
+        this.containingClass = containingClass;
     }
 
     public List<JsPropertyInitializer> getEnumEntryList() {
@@ -73,7 +62,7 @@ public class DeclarationBodyVisitor extends TranslatorVisitor<Void> {
 
     @Override
     public Void visitClassOrObject(@NotNull KtClassOrObject declaration, TranslationContext context) {
-        staticResult.addAll(ClassTranslator.translate(declaration, context).getProperties());
+        ClassTranslator.translate(declaration, context);
 
         if (declaration instanceof KtObjectDeclaration) {
             KtObjectDeclaration objectDeclaration = (KtObjectDeclaration) declaration;
@@ -91,13 +80,13 @@ public class DeclarationBodyVisitor extends TranslatorVisitor<Void> {
         ClassDescriptor descriptor = getClassDescriptor(data.bindingContext(), enumEntry);
         List<KotlinType> supertypes = getSupertypesWithoutFakes(descriptor);
         if (enumEntry.getBody() != null || supertypes.size() > 1) {
-            enumEntryList.addAll(ClassTranslator.translate(enumEntry, data).getProperties());
+            ClassTranslator.translate(enumEntry, data);
         } else {
             assert supertypes.size() == 1 : "Simple Enum entry must have one supertype";
-            JsExpression jsEnumEntryCreation = new ClassInitializerTranslator(enumEntry, data)
+            /*JsExpression jsEnumEntryCreation = new ClassInitializerTranslator(enumEntry, data)
                     .generateEnumEntryInstanceCreation(supertypes.get(0));
             jsEnumEntryCreation = TranslationUtils.simpleReturnFunction(data.scope(), jsEnumEntryCreation);
-            enumEntryList.add(new JsPropertyInitializer(data.getNameForDescriptor(descriptor).makeRef(), jsEnumEntryCreation));
+            enumEntryList.add(new JsPropertyInitializer(data.getNameForDescriptor(descriptor).makeRef(), jsEnumEntryCreation));*/
         }
         return null;
     }
@@ -109,17 +98,23 @@ public class DeclarationBodyVisitor extends TranslatorVisitor<Void> {
             return null;
         }
 
-        context = context.newDeclaration(descriptor, context.getDefinitionPlace());
-        JsPropertyInitializer methodAsPropertyInitializer = Translation.functionTranslator(expression, context).translateAsMethod();
-        result.add(methodAsPropertyInitializer);
+        context = context.newDeclaration(descriptor);
+        JsFunction function = new JsFunction(context.getRootFunction().getScope(), new JsBlock(), descriptor.toString());
+        Translation.functionTranslator(expression, context, function).translateAsMethod();
+
+        JsName classInnerName = context.getInnerNameForDescriptor(containingClass);
+        JsExpression prototypeRef = new JsNameRef("prototype", new JsNameRef(classInnerName));
+        JsExpression functionRef = new JsNameRef(context.getNameForDescriptor(descriptor), prototypeRef);
+        context.addRootStatement(JsAstUtils.assignment(functionRef, function).makeStmt());
+
         return null;
     }
 
     @Override
     public Void visitProperty(@NotNull KtProperty expression, TranslationContext context) {
         PropertyDescriptor propertyDescriptor = BindingUtils.getPropertyDescriptor(context.bindingContext(), expression);
-        context = context.newDeclaration(propertyDescriptor, context.getDefinitionPlace());
-        PropertyTranslatorKt.translateAccessors(propertyDescriptor, expression, result, context);
+        context = context.newDeclaration(propertyDescriptor);
+        PropertyTranslatorKt.translateAccessors(propertyDescriptor, expression, context);
         return null;
     }
 
@@ -138,7 +133,6 @@ public class DeclarationBodyVisitor extends TranslatorVisitor<Void> {
         if (initializerStatements == null) {
             initializerStatements = new ArrayList<JsStatement>();
             JsFunction initializerFunction = new JsFunction(scope, new JsBlock(initializerStatements), "class initializer");
-            staticResult.add(new JsPropertyInitializer(new JsNameRef("object_initializer$"), initializerFunction));
         }
         initializerStatements.add(statement);
     }
