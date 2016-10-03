@@ -899,6 +899,12 @@ public class ParsingTestGenerated extends AbstractParsingTest {
                     doParsingTest(fileName);
                 }
 
+                @TestMetadata("blockLevelExpressions.kt")
+                public void testBlockLevelExpressions() throws Exception {
+                    String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/psi/annotation/at/blockLevelExpressions.kt");
+                    doParsingTest(fileName);
+                }
+
                 @TestMetadata("declarationsJustAtTyped.kt")
                 public void testDeclarationsJustAtTyped() throws Exception {
                     String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/psi/annotation/at/declarationsJustAtTyped.kt");

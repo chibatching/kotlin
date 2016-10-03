@@ -1233,23 +1233,35 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
 
     /*
      * statement
-     *  : expression
      *  : declaration
+     *  : annotations expression
      *  ;
      */
     private void parseStatement(boolean isScriptTopLevel) {
         if (!parseLocalDeclaration(/* rollbackIfDefinitelyNotExpression = */false)) {
-            if (!atSet(EXPRESSION_FIRST)) {
-                errorAndAdvance("Expecting a statement");
-            }
-            else if (isScriptTopLevel){
-                PsiBuilder.Marker scriptInitializer = mark();
-                parseExpression();
-                scriptInitializer.done(SCRIPT_INITIALIZER);
-            }
-            else {
-                parseExpression();
-            }
+            parseStatementLevelExpression(isScriptTopLevel);
+        }
+    }
+
+    private void parseStatementLevelExpression(boolean isScriptTopLevel) {
+        if (at(AT)) {
+            PsiBuilder.Marker expression = mark();
+            myKotlinParsing.parseAnnotations(DEFAULT);
+            parseStatementLevelExpression(isScriptTopLevel);
+            expression.done(ANNOTATED_EXPRESSION);
+            return;
+        }
+
+        if (!atSet(EXPRESSION_FIRST)) {
+            errorAndAdvance("Expecting a statement");
+        }
+        else if (isScriptTopLevel){
+            PsiBuilder.Marker scriptInitializer = mark();
+            parseExpression();
+            scriptInitializer.done(SCRIPT_INITIALIZER);
+        }
+        else {
+            parseExpression();
         }
     }
 
