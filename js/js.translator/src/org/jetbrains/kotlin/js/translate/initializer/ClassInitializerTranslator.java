@@ -194,6 +194,11 @@ public final class ClassInitializerTranslator extends AbstractTranslator {
                     addCallToSuperMethod(arguments, initializer);
                 }
                 else {
+                    int padSize = superCall.getResultingDescriptor().getValueParameters().size() -
+                                  superCall.getCall().getValueArguments().size();
+                    while (padSize-- > 0) {
+                        arguments.add(Namer.getUndefinedExpression());
+                    }
                     addCallToSuperSecondaryConstructor(arguments, superDescriptor);
                 }
             }

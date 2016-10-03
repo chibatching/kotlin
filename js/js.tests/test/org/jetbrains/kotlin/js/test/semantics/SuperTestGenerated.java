@@ -155,6 +155,12 @@ public class SuperTestGenerated extends AbstractSuperTest {
         doTest(fileName);
     }
 
+    @TestMetadata("superPrimaryConstructorWithOptionalArgs.kt")
+    public void testSuperPrimaryConstructorWithOptionalArgs() throws Exception {
+        String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/box/super/superPrimaryConstructorWithOptionalArgs.kt");
+        doTest(fileName);
+    }
+
     @TestMetadata("traitproperty.kt")
     public void testTraitproperty() throws Exception {
         String fileName = KotlinTestUtils.navigationMetadata("compiler/testData/codegen/box/super/traitproperty.kt");
