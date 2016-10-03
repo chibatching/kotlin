@@ -17,6 +17,7 @@
 package org.jetbrains.kotlin.resolve.lazy.descriptors
 
 import org.jetbrains.kotlin.builtins.KotlinBuiltIns
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor.Kind.DELEGATION
 import org.jetbrains.kotlin.descriptors.CallableMemberDescriptor.Kind.FAKE_OVERRIDE
@@ -181,6 +182,8 @@ open class LazyClassMemberScope(
 
             result.add(DataClassDescriptorResolver.createCopyFunctionDescriptor(constructor.valueParameters, thisDescriptor, trace))
         }
+
+        if (!c.languageVersionSettings.supportsFeature(LanguageFeature.DataClassInheritance)) return
 
         fun shouldAddFunctionFromAny(checkParameters: (FunctionDescriptor) -> Boolean): Boolean {
             // Add 'equals', 'hashCode', 'toString' iff there is no such declared member AND there is no such final member in supertypes
