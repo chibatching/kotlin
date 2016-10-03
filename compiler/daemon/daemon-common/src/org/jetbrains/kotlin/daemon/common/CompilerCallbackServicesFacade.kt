@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.incremental.components.LookupInfo
 import org.jetbrains.kotlin.load.kotlin.incremental.components.JvmPackagePartProto
 import org.jetbrains.kotlin.modules.TargetId
 import java.io.Serializable
+import java.lang.Exception
 import java.rmi.Remote
 import java.rmi.RemoteException
 
@@ -47,9 +48,6 @@ interface CompilerCallbackServicesFacade : Remote {
 
     @Throws(RemoteException::class)
     fun incrementalCache_getObsoleteMultifileClassFacades(target: TargetId): Collection<String>
-
-    @Throws(RemoteException::class)
-    fun incrementalCache_getMultifileFacade(target: TargetId, partInternalName: String): String?
 
     @Throws(RemoteException::class)
     fun incrementalCache_getPackagePartData(target: TargetId, partInternalName: String): JvmPackagePartProto?

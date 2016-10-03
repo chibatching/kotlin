@@ -132,8 +132,8 @@ class GenerationState @JvmOverloads constructor(
     val bindingTrace: BindingTrace = DelegatingBindingTrace(bindingContext, "trace in GenerationState")
     val bindingContext: BindingContext = bindingTrace.bindingContext
     val typeMapper: KotlinTypeMapper = KotlinTypeMapper(
-            this.bindingContext, classBuilderMode, fileClassesProvider, incrementalCacheForThisTarget,
-            IncompatibleClassTrackerImpl(extraJvmDiagnosticsTrace), this.moduleName, isJvm8Target
+            this.bindingContext, classBuilderMode, fileClassesProvider, IncompatibleClassTrackerImpl(extraJvmDiagnosticsTrace),
+            this.moduleName, isJvm8Target
     )
     val intrinsics: IntrinsicMethods = IntrinsicMethods()
     val samWrapperClasses: SamWrapperClasses = SamWrapperClasses(this)
@@ -170,7 +170,7 @@ class GenerationState @JvmOverloads constructor(
                     { OptimizationClassBuilderFactory(it, configuration.get(JVMConfigurationKeys.DISABLE_OPTIMIZATION, false)) },
                     ::CoroutineTransformerClassBuilderFactory,
                     { BuilderFactoryForDuplicateSignatureDiagnostics(
-                            it, this.bindingContext, diagnostics, fileClassesProvider, incrementalCacheForThisTarget, this.moduleName
+                            it, this.bindingContext, diagnostics, fileClassesProvider, this.moduleName
                       ).apply { duplicateSignatureFactory = this } },
                     { BuilderFactoryForDuplicateClassNameDiagnostics(it, diagnostics) },
                     { configuration.get(JVMConfigurationKeys.DECLARATIONS_JSON_PATH)
